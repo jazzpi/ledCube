@@ -17,19 +17,24 @@ void setup_current() {
   
   switch (current_mode) {
   case Mode::SPLIT_LOOP_5:
-    split_loop::setup(5);
+    split_loop::setup(12);
+    Serial.println("split loop");
     break;
   case Mode::SEPERATED:
     seperated::setup();
+    Serial.println("pulsing");
+    break;
+  case Mode::BOTTOM_UP:
+    bottom_up::setup();
+    Serial.println("bottom up");
     break;
   case Mode::ICE:
     ice::setup();
+    Serial.println("ice");
     break;
   case Mode::STROBOPOP_WHITE:
     strobopop::setup(false);
-    break;
-  case Mode::STROBOPOP_COL:
-    strobopop::setup(true);
+    Serial.println("strobo");
     break;
   default:
       break;
@@ -54,11 +59,13 @@ void step_current() {
   case Mode::SEPERATED:
     modes::seperated::step();
     break;
+  case Mode::BOTTOM_UP:
+    modes::bottom_up::step();
+    break;
   case Mode::ICE:
     modes::ice::step();
     break;
   case Mode::STROBOPOP_WHITE:
-  case Mode::STROBOPOP_COL:
     modes::strobopop::step();
     break;
   default:
@@ -94,18 +101,92 @@ void step() {
 } // namespace split_loop
 
 
+namespace bottom_up {
+
+  static uint8_t color;
+  static uint8_t progress = 0;
+
+  void setup() {
+    progress = 0;
+  }
+
+  void step() {
+    uint8_t this_brightness = color < 3 ? brightness : 0;
+    uint8_t this_hue = color * 80 + 10;
+    uint8_t this_sat = 255;
+    if (progress == 0 && color == 0) {
+      setAllLED(0, 0, 0);
+    }
+
+    if (progress < 24) {
+      setLED(progress, this_hue, this_sat, this_brightness);
+    } else if (progress < 30) {
+      // be slower in the middle
+      static uint8_t counter = 0;
+      counter++;
+      if (counter % 3 != 0) {
+        return;
+      }
+      uint8_t i = progress - 24;
+      setLED(24 + i, this_hue, this_sat, this_brightness);
+      setLED(35 - i, this_hue, this_sat, this_brightness);
+      setLED(36 + i, this_hue, this_sat, this_brightness);
+      setLED(47 - i, this_hue, this_sat, this_brightness);
+    } else {
+      setLED(progress + 18, this_hue, this_sat, this_brightness);
+    }
+    progress++;
+    if (progress == 60) {
+      progress = 0;
+      color = (color + 1) % 4;
+    }
+    FastLED.show();
+  }
+
+} // namespace bottom_up
+
+
 namespace seperated {
 
   static uint8_t splits = 3;
   static uint8_t leds_per_split = 4 * 6;
   static uint8_t hue_per_split = 256 / 3;
   static int16_t pulsing = 0;
+  static uint8_t progress = 0;
   static bool up = false;
 
   void setup() {
+    progress = 0;
   }
 
   void step() {
+    if (progress == 0) {
+      setAllLED(0, 0, 0);
+    }
+    if (progress < 66) {
+      if (progress < 24) {
+        setLED(progress, 0, 255, brightness);
+      } else if (progress < 30) {
+        // be slower in the middle
+        static uint8_t counter = 0;
+        counter++;
+        if (counter % 3 != 0) {
+          return;
+        }
+        uint8_t i = progress - 24;
+        setLED(24 + i, hue_per_split, 255, brightness);
+        setLED(35 - i, hue_per_split, 255, brightness);
+        setLED(36 + i, hue_per_split, 255, brightness);
+        setLED(47 - i, hue_per_split, 255, brightness);
+      } else if (progress < 54) {
+        setLED(progress + 18, 2 * hue_per_split, 255, brightness);
+      }
+      progress++;
+      FastLED.show();
+      return;
+    }
+
+
     if (up) {
       pulsing += 4;
     } else {
@@ -118,9 +199,6 @@ namespace seperated {
       up = true;
       pulsing = 0;
     }
-    Serial.print(pulsing);
-    Serial.print(", ");
-    Serial.println(brightness);
     for (uint8_t split = 0; split < splits; split++) {
       for (uint8_t i = 0; i < leds_per_split; i++) {
         uint8_t index = split * leds_per_split + i;

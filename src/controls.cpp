@@ -80,6 +80,13 @@ void controls_step() {
   }
 
   speed = shift_right_round(1023 - analogRead(SPEED_PIN), SPEED_SHIFT);
-  brightness = shift_right_round(analogRead(BRIGHTNESS_PIN), BRIGHTNESS_SHIFT);
-  brightness = (brightness > 255 - MIN_BRIGHTNESS) ? 255 : brightness + MIN_BRIGHTNESS;
+  uint16_t value = shift_right_round(analogRead(BRIGHTNESS_PIN), BRIGHTNESS_SHIFT);
+  brightness = value + MIN_BRIGHTNESS;
+  if (brightness < value) {
+    brightness = 255;
+  }
+  // Serial.print(value);
+  // Serial.print(", ");
+  // Serial.println(brightness);
+  // brightness = 60;
 }
